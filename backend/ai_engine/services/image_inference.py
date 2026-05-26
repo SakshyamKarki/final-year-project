@@ -6,6 +6,8 @@ from PIL import Image
 from decouple import config
 from django.conf import settings
 from torchvision import transforms
+import torchvision.models as models
+import torch.nn as nn
 
 
 # Cache the loaded model in memory so we don't reload weights every request
@@ -34,11 +36,29 @@ def _resolve_models_dir() -> str:
 
 def _load_model(model_path: str):
     """
-    Loads a torch model checkpoint.
-    NOTE: saved a full model via torch.save(model, path)
+    Load DenseNet121 CIFAKE classifier from state_dict checkpoint.
     """
-    model = torch.load(model_path, map_location=_device())
+
+    # Create DenseNet121 architecture
+    model = models.densenet121(weights=None)
+
+    # Match training notebook classifier
+    model.classifier = nn.Sequential(
+        nn.Dropout(0.3),
+        nn.Linear(model.classifier.in_features, 2)
+    )
+
+    # Load checkpoint weights
+    state_dict = torch.load(
+        model_path,
+        map_location=_device()
+    )
+
+    model.load_state_dict(state_dict)
+
+    # Evaluation mode
     model.eval()
+
     return model
 
 
@@ -62,19 +82,16 @@ def _get_model():
 def _preprocess_image(image_path: str):
     img = Image.open(image_path).convert("RGB")
 
-    # Common imagenet-style preprocessing;
-    preprocess = transforms.Compose(
-        [
-            transforms.Resize((224, 224)),
-            transforms.ToTensor(),
-            transforms.Normalize(
-                mean=[0.485, 0.456, 0.406],
-                std=[0.229, 0.224, 0.225],
-            ),
-        ]
-    )
+    preprocess = transforms.Compose([
+        transforms.Resize((64, 64)),  # MUST match training
+        transforms.ToTensor(),
+        transforms.Normalize(
+            mean=[0.485, 0.456, 0.406],
+            std=[0.229, 0.224, 0.225],
+        ),
+    ])
 
-    x = preprocess(img).unsqueeze(0)  # [1, C, H, W]
+    x = preprocess(img).unsqueeze(0)
     return x.to(_device())
 
 
