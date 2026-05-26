@@ -22,16 +22,16 @@ class UploadAnalysis:
 
 # Human-readable threshold descriptions
 _THRESHOLD_NOTE = (
-    "Confidence ≥ 0.80 → REAL (likely a real photograph); "
-    "≥ 0.55 → UNCERTAIN (sent to human review); "
-    "< 0.55 → AI_GEN (likely AI-generated / synthetic)."
+    "Confidence ≥ 0.90 → REAL (likely a real photograph); "
+    "≥ 0.65 → UNCERTAIN (sent to human review); "
+    "< 0.65 → AI_GEN (likely AI-generated / synthetic)."
 )
 
 
 def _build_explanation(status: str, ai_confidence: float) -> str:
     """
     Generate a concise, professional explanation of the model verdict.
-    Thresholds: >=0.80 REAL, 0.55-0.79 UNCERTAIN, <0.55 AI_GEN.
+    Thresholds: >=0.90 REAL, 0.65-0.89 UNCERTAIN, <0.65 AI_GEN.
     """
     pct = round(ai_confidence * 100, 1)
 
