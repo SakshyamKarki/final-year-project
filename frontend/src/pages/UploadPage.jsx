@@ -266,71 +266,79 @@ export default function UploadPage() {
             The model's verdict appears here after submission.
           </p>
 
-          {!result ? (
-            <div className="mt-8 text-center">
-              <div className="text-slate-300 text-5xl mb-3">🔍</div>
-              <div className="text-sm text-slate-400">No result yet.</div>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="text-sm font-bold text-slate-900 leading-snug">
-                  {result.title}
+            {!result ? (
+          <div className="mt-8 text-center">
+            <div className="text-slate-300 text-5xl mb-3">🔍</div>
+            <div className="text-sm text-slate-400">No result yet.</div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Verdict header with color emphasis */}
+            {(() => {
+              const s = result.status;
+              const verdictMap = {
+                REAL:      { label: "Likely Real Photograph",   cls: "bg-teal-50  border-teal-300  text-teal-800"  },
+                UNCERTAIN: { label: "Requires Human Review",    cls: "bg-amber-50 border-amber-300 text-amber-800" },
+                AI_GEN:    { label: "Potentially AI Generated", cls: "bg-rose-50  border-rose-300  text-rose-800"  },
+              };
+              const v = verdictMap[s] ?? verdictMap["UNCERTAIN"];
+              return (
+                <div className={`rounded-xl border px-4 py-3 font-bold text-sm ${v.cls}`}>
+                  {v.label}
                 </div>
-                <Badge value={result.status} />
+              );
+            })()}
+
+            <div className="flex items-start justify-between gap-3">
+              <div className="text-sm font-bold text-slate-900 leading-snug">
+                {result.title}
               </div>
-
-              {result.image_url && (
-                <div className="rounded-2xl overflow-hidden border border-slate-200 bg-slate-100">
-                  <img
-                    src={result.image_url}
-                    alt={result.title}
-                    className="w-full h-56 object-cover"
-                  />
-                </div>
-              )}
-
-              <TrustScoreBar score={result.trust_score} />
-
-              <div className="grid grid-cols-2 gap-3">
-                <Card className="p-3 bg-slate-50">
-                  <div className="text-xs text-slate-500">Category</div>
-                  <div className="text-sm font-extrabold text-slate-900">
-                    {result.category || "Other"}
-                  </div>
-                </Card>
-                <Card className="p-3 bg-slate-50">
-                  <div className="text-xs text-slate-500">Model confidence</div>
-                  <div className="text-sm font-extrabold text-slate-900">
-                    {((result.ai_confidence ?? 0) * 100).toFixed(1)}%
-                  </div>
-                </Card>
-              </div>
-
-              {result.explanation && (
-                <Card className="p-4 bg-slate-50">
-                  <div className="text-xs font-semibold text-slate-700 mb-1">
-                    Why this verdict?
-                  </div>
-                  <div className="text-sm text-slate-700">
-                    {result.explanation}
-                  </div>
-                </Card>
-              )}
-
-              <div className="text-xs text-slate-500">
-                Status:{" "}
-                <span className="font-semibold text-slate-700">
-                  {result.moderation_status}
-                </span>
-                {result.moderation_status === "QUEUED" && (
-                  <span className="ml-1 text-amber-600">
-                    — pending human review
-                  </span>
-                )}
-              </div>
+              <Badge value={result.status} />
             </div>
-          )}
+
+            {result.image_url && (
+              <div className="rounded-2xl overflow-hidden border border-slate-200 bg-slate-100">
+                <img
+                  src={result.image_url}
+                  alt={result.title}
+                  className="w-full h-56 object-cover"
+                />
+              </div>
+            )}
+
+            <TrustScoreBar score={result.trust_score} />
+
+            <div className="grid grid-cols-2 gap-3">
+              <Card className="p-3 bg-slate-50">
+                <div className="text-xs text-slate-500">Category</div>
+                <div className="text-sm font-extrabold text-slate-900">
+                  {result.category || "Other"}
+                </div>
+              </Card>
+              <Card className="p-3 bg-slate-50">
+                <div className="text-xs text-slate-500">Model confidence</div>
+                <div className="text-sm font-extrabold text-slate-900">
+                  {((result.ai_confidence ?? 0) * 100).toFixed(1)}%
+                </div>
+              </Card>
+            </div>
+
+            {result.explanation && (
+              <Card className="p-4 bg-slate-50">
+                <div className="text-xs font-semibold text-slate-700 mb-1">
+                  Why this verdict?
+                </div>
+                <div className="text-sm text-slate-700">{result.explanation}</div>
+              </Card>
+            )}
+
+            {/* Moderation badge */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-500">Moderation status:</span>
+              <Badge value={result.moderation_status} />
+            </div>
+          </div>
+        )}
         </Card>
       </div>
     </div>

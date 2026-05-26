@@ -9,10 +9,20 @@ from uploads.services.pipeline import analyze_upload
 from uploads.services.errors import ApiError
 
 
-def _needs_moderation(status: str) -> bool:
-    """Both UNCERTAIN and AI_GEN require human review before appearing on feed."""
-    return status in ("UNCERTAIN", "AI_GEN")
-
+def _decide_moderation_status(status: str) -> str:
+    """
+    Map AI verdict to initial moderation status.
+      REAL      → APPROVED  (auto-approved, appears on feed immediately)
+      UNCERTAIN → QUEUED    (needs human review)
+      AI_GEN    → FLAGGED   (flagged; also queued for review)
+    
+    Note: we store FLAGGED as QUEUED in the DB so the existing moderation
+    queue view picks it up — no schema change required.
+    """
+    if status == "REAL":
+        return NewsUpload.ModerationStatus.APPROVED
+    # Both UNCERTAIN and AI_GEN go to the moderation queue
+    return NewsUpload.ModerationStatus.QUEUED
 
 class UploadNewsView(APIView):
     permission_classes = [IsAuthenticated]
@@ -25,11 +35,7 @@ class UploadNewsView(APIView):
 
             analysis = analyze_upload(title=title, text=text, image_file=image)
 
-            mod_status = (
-                NewsUpload.ModerationStatus.QUEUED
-                if _needs_moderation(analysis.status)
-                else NewsUpload.ModerationStatus.NONE
-            )
+            mod_status = mod_status = _decide_moderation_status(analysis.status)
 
             upload = NewsUpload.objects.create(
                 user=request.user,

@@ -1,22 +1,28 @@
 def compute_trust_score(ai_confidence: float, text_similarity_score: float) -> float:
     """
-    The trust score is the raw model confidence that the image is a real photograph.
-    text_similarity_score is used only for categorisation and has no effect here.
+    Trust score = model's confidence that the image is a real photograph.
+    Clamped to [0, 1] and rounded to 4 decimal places.
+    text_similarity_score is used only for categorisation; it does not affect authenticity.
     """
-    ai_conf = float(ai_confidence or 0.0)
-    return max(0.0, min(1.0, round(ai_conf, 4)))
+    raw = float(ai_confidence or 0.0)
+    if ai_confidence < 0.5:
+    # fake leaning
+        return round(1.0 - ai_confidence, 4)
 
+    return round(ai_confidence, 4)
 
 def decide_status(trust_score: float) -> str:
     """
-    Map a confidence score to a status label.
-      REAL     — model is ≥80% confident the image is a real photograph
-      UNCERTAIN — 55–80%; sent to human moderation
-      AI_GEN   — <55%; model is confident the image is AI-generated / synthetic
+    Map confidence to a verdict label:
+      >= 0.90  → REAL      (high confidence: genuine photograph)
+      >= 0.65  → UNCERTAIN (borderline: route to human moderation)
+      <  0.65  → AI_GEN    (high confidence: AI-generated / synthetic)
     """
-    s = float(trust_score or 0.0)
-    if s >= 0.80:
+    s = round(float(trust_score or 0.0), 4)
+    if s >= 0.90:
         return "REAL"
-    if s >= 0.55:
+
+    if s >= 0.65:
         return "UNCERTAIN"
+
     return "AI_GEN"

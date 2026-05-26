@@ -29,23 +29,26 @@ _THRESHOLD_NOTE = (
 
 
 def _build_explanation(status: str, ai_confidence: float) -> str:
+    """
+    Generate a concise, professional explanation of the model verdict.
+    Thresholds: >=0.80 REAL, 0.55-0.79 UNCERTAIN, <0.55 AI_GEN.
+    """
     pct = round(ai_confidence * 100, 1)
+
     if status == "REAL":
         return (
-            f"The image analysis model is {pct}% confident this is a real photograph. "
-            f"{_THRESHOLD_NOTE}"
+            f"The model predicts this image is likely a genuine photograph "
+            f"with {pct}% confidence. Images above 90% confidence are automatically approved."
         )
     if status == "AI_GEN":
         return (
-            f"The image analysis model is {pct}% confident the attached image is "
-            f"AI-generated or synthetic (trained on the CIFAKE dataset). "
-            f"{_THRESHOLD_NOTE}"
+            f"The model predicts this image may be AI-generated or synthetically "
+            f"manipulated ({pct}% confidence). This item has been flagged for review."
         )
-    # UNCERTAIN
+    # UNCERTAIN (55–79%)
     return (
-        f"The model returned a confidence of {pct}%, which falls in the uncertain "
-        f"range. This upload has been queued for human review. "
-        f"{_THRESHOLD_NOTE}"
+        f"The prediction confidence ({pct}%) falls within the uncertain range (65–90%). "
+        f"Human moderation is recommended before this item is published."
     )
 
 

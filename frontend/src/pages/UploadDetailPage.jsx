@@ -83,7 +83,35 @@ export default function UploadDetailPage() {
           )}
         </div>
       </div>
-
+      {/* Verdict summary box */}
+      {item.status && (() => {
+        const verdictMap = {
+          REAL:      { label: "Likely Real Photograph",   cls: "bg-teal-50  border-teal-300  text-teal-800"  },
+          UNCERTAIN: { label: "Requires Human Review",    cls: "bg-amber-50 border-amber-300 text-amber-800" },
+          AI_GEN:    { label: "Potentially AI Generated", cls: "bg-rose-50  border-rose-300  text-rose-800"  },
+        };
+        const v = verdictMap[item.status] ?? verdictMap["UNCERTAIN"];
+        return (
+          <Card className={`p-4 border ${v.cls}`}>
+            <div className="flex flex-wrap items-center gap-4">
+              <div>
+                <div className="text-xs font-semibold opacity-70">Verdict</div>
+                <div className="text-sm font-bold">{v.label}</div>
+              </div>
+              <div>
+                <div className="text-xs font-semibold opacity-70">Confidence</div>
+                <div className="text-sm font-bold">
+                  {((item.ai_confidence ?? 0) * 100).toFixed(1)}%
+                </div>
+              </div>
+              <div>
+                <div className="text-xs font-semibold opacity-70">Moderation</div>
+                <Badge value={item.moderation_status} />
+              </div>
+            </div>
+          </Card>
+        );
+      })()}
       <Card className="p-4 space-y-4">
         {item.image_url && (
           <img

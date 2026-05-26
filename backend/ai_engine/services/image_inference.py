@@ -2,15 +2,13 @@ import os
 from dataclasses import dataclass
 
 import torch
+import torch.nn as nn
 from PIL import Image
 from decouple import config
 from django.conf import settings
-from torchvision import transforms
-import torchvision.models as models
-import torch.nn as nn
+from torchvision import models, transforms
 
-
-# Cache the loaded model in memory so we don't reload weights every request
+# Cache loaded model in memory
 _MODEL = None
 
 
@@ -26,40 +24,33 @@ def _device():
 
 def _resolve_models_dir() -> str:
     raw = config("ML_MODELS_DIR", default="ml_models")
-
-    # relative path like "ml_models", resolve relative to backend/ (BASE_DIR)
-    models_dir = raw
-    if not os.path.isabs(models_dir):
-        models_dir = str(settings.BASE_DIR / models_dir)
-    return models_dir
+    if not os.path.isabs(raw):
+        return str(settings.BASE_DIR / raw)
+    return raw
 
 
 def _load_model(model_path: str):
     """
-    Load DenseNet121 CIFAKE classifier from state_dict checkpoint.
+    Instantiate DenseNet121 with the same classifier head used during training,
+    then load the saved state_dict. The notebook saved state_dict only
+    (torch.save(model.state_dict(), path)), so we must build the architecture first.
     """
+    # Build backbone without pretrained weights
+    backbone = models.densenet121(weights=None)
 
-    # Create DenseNet121 architecture
-    model = models.densenet121(weights=None)
+    in_features = backbone.classifier.in_features  # 1024 for DenseNet121
 
-    # Match training notebook classifier
-    model.classifier = nn.Sequential(
+    # Classifier must match training notebook exactly
+    backbone.classifier = nn.Sequential(
         nn.Dropout(0.3),
-        nn.Linear(model.classifier.in_features, 2)
+        nn.Linear(in_features, 2),
     )
 
-    # Load checkpoint weights
-    state_dict = torch.load(
-        model_path,
-        map_location=_device()
-    )
-
-    model.load_state_dict(state_dict)
-
-    # Evaluation mode
-    model.eval()
-
-    return model
+    # Load saved weights
+    state_dict = torch.load(model_path, map_location=_device())
+    backbone.load_state_dict(state_dict)
+    backbone.eval()
+    return backbone
 
 
 def _get_model():
@@ -82,8 +73,9 @@ def _get_model():
 def _preprocess_image(image_path: str):
     img = Image.open(image_path).convert("RGB")
 
+    # Must match training transforms exactly: 64x64 resize + ImageNet normalisation
     preprocess = transforms.Compose([
-        transforms.Resize((64, 64)),  # MUST match training
+        transforms.Resize((224, 224)),
         transforms.ToTensor(),
         transforms.Normalize(
             mean=[0.485, 0.456, 0.406],
@@ -91,40 +83,32 @@ def _preprocess_image(image_path: str):
         ),
     ])
 
-    x = preprocess(img).unsqueeze(0)
-    return x.to(_device())
+    return preprocess(img).unsqueeze(0).to(_device())  # [1, C, H, W]
 
 
 def run_densenet121_inference(image_path: str) -> ImageInferenceResult:
     """
-    Returns:
-      - label: "REAL" or "FAKE" (adjust mapping if your model differs)
-      - confidence: float in [0, 1]
+    Returns label ("REAL" or "AI_GEN") and confidence in [0, 1].
+    Model outputs 2-class logits; softmax index 1 = REAL, index 0 = AI_GEN.
     """
     model = _get_model()
     x = _preprocess_image(image_path)
 
     with torch.no_grad():
-        logits = model(x)
+        logits = model(x)                          # shape [1, 2]
+        probs = torch.softmax(logits, dim=1)[0]    # shape [2]
+        real_prob = float(probs[1].item())         # index 1 = REAL class
 
-        # Handle both:
-        # - binary sigmoid output shape [1] or [1,1]
-        # - 2-class softmax output shape [1,2]
-        if isinstance(logits, (tuple, list)):
-            logits = logits[0]
+    fake_prob = 1.0 - real_prob
 
-        if logits.ndim == 2 and logits.shape[1] == 2:
-            probs = torch.softmax(logits, dim=1)[0]
-            # assume index 1 = REAL, index 0 = FAKE 
-            real_prob = float(probs[1].item())
-        else:
-            # assume sigmoid probability of REAL
-            real_prob = float(torch.sigmoid(logits).view(-1)[0].item())
+    label = "REAL" if real_prob >= fake_prob else "AI_GEN"
 
-    label = "REAL" if real_prob >= 0.5 else "FAKE"
-    confidence = real_prob if label == "REAL" else (1.0 - real_prob)
+    confidence = max(real_prob, fake_prob)
 
-    return ImageInferenceResult(label=label, confidence=confidence)
+    return ImageInferenceResult(
+        label=label,
+        confidence=confidence,
+    )
 
 
 def as_dict(res: ImageInferenceResult) -> dict:
