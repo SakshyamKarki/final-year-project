@@ -83,13 +83,30 @@ REST_FRAMEWORK = {
         "rest_framework.permissions.IsAuthenticatedOrReadOnly",
     ],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
-    # throttling (rate limit)
+    # Pagination — all list endpoints return { count, next, previous, results }
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 20,
+    # Throttling
     "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
         "rest_framework.throttling.UserRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
-        "user": "60/min",
+        "anon": "30/min",
+        "user": "120/min",
+        # tighter scope for auth endpoints (applied in views)
+        "auth": "10/min",
     },
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Media Authenticity API",
+    "DESCRIPTION": (
+        "API for detecting AI-generated images in news uploads. "
+        "Uses DenseNet121 for image classification."
+    ),
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
 }
 
 SIMPLE_JWT = {

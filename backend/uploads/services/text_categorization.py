@@ -63,7 +63,7 @@ def cosine_similarity(a: Dict[str, float], b: Dict[str, float]) -> float:
     return _dot(a, b) / (na * nb)
 
 
-# Simple keyword “documents” per category (you can tune these anytime)
+# Simple keyword “documents” per category 
 CATEGORY_KEYWORDS: Dict[str, List[str]] = {
     "Politics": [
         "government", "minister", "president", "election", "parliament", "policy",

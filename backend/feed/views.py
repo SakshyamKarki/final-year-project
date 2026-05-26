@@ -10,13 +10,20 @@ class FeedListView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        real_qs = NewsUpload.objects.filter(status=NewsUpload.Status.REAL).order_by("-created_at")
-        approved_suspicious = NewsUpload.objects.filter(
-            status=NewsUpload.Status.SUSPICIOUS,
-            moderation_status=NewsUpload.ModerationStatus.APPROVED,
+        # REAL items appear immediately
+        real_qs = NewsUpload.objects.filter(
+            status=NewsUpload.Status.REAL,
+            is_deleted=False,
         ).order_by("-created_at")
 
-        items = list(real_qs) + list(approved_suspicious)
+        # UNCERTAIN / AI_GEN items appear only after a moderator approves them
+        approved_review = NewsUpload.objects.filter(
+            status__in=[NewsUpload.Status.UNCERTAIN, NewsUpload.Status.AI_GEN],
+            moderation_status=NewsUpload.ModerationStatus.APPROVED,
+            is_deleted=False,
+        ).order_by("-created_at")
+
+        items = list(real_qs) + list(approved_review)
         items.sort(key=lambda x: x.created_at, reverse=True)
 
         data = FeedItemSerializer(items, many=True, context={"request": request}).data

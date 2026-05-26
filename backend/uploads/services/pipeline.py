@@ -16,15 +16,45 @@ class UploadAnalysis:
     text_similarity_score: float
     ai_confidence: float
     trust_score: float
-    status: str
+    status: str          # "REAL" | "AI_GEN" | "UNCERTAIN"
     explanation: str
+
+
+# Human-readable threshold descriptions
+_THRESHOLD_NOTE = (
+    "Confidence ≥ 0.80 → REAL (likely a real photograph); "
+    "≥ 0.55 → UNCERTAIN (sent to human review); "
+    "< 0.55 → AI_GEN (likely AI-generated / synthetic)."
+)
+
+
+def _build_explanation(status: str, ai_confidence: float) -> str:
+    pct = round(ai_confidence * 100, 1)
+    if status == "REAL":
+        return (
+            f"The image analysis model is {pct}% confident this is a real photograph. "
+            f"{_THRESHOLD_NOTE}"
+        )
+    if status == "AI_GEN":
+        return (
+            f"The image analysis model is {pct}% confident the attached image is "
+            f"AI-generated or synthetic (trained on the CIFAKE dataset). "
+            f"{_THRESHOLD_NOTE}"
+        )
+    # UNCERTAIN
+    return (
+        f"The model returned a confidence of {pct}%, which falls in the uncertain "
+        f"range. This upload has been queued for human review. "
+        f"{_THRESHOLD_NOTE}"
+    )
 
 
 def analyze_upload(*, title: str, text: str, image_file) -> UploadAnalysis:
     validate_title_text(title, text)
     validate_image(image_file)
 
-    # Text analysis (category only)
+    # Text analysis — category only; similarity score is NOT used for the
+    # authenticity decision (the model is image-only).
     ta = categorize_news_text(text)
     category = ta.category
     text_similarity_score = float(ta.similarity_score)
@@ -39,7 +69,6 @@ def analyze_upload(*, title: str, text: str, image_file) -> UploadAnalysis:
         img_res = run_densenet121_inference(tmp_path)
         ai_confidence = float(img_res.confidence)
     except FileNotFoundError as e:
-        # A) Block upload with clear error (demo-friendly message)
         raise ApiError(code="model_missing", detail=str(e), status=500)
     finally:
         try:
@@ -49,12 +78,7 @@ def analyze_upload(*, title: str, text: str, image_file) -> UploadAnalysis:
 
     trust_score = float(compute_trust_score(ai_confidence, text_similarity_score))
     status = decide_status(trust_score)
-
-    explanation = (
-        f"Decision based on model confidence={ai_confidence:.2f}. "
-        f"Thresholds: REAL>=0.80, SUSPICIOUS>=0.55 else FAKE. "
-        f"Text similarity is used only for category labeling."
-    )
+    explanation = _build_explanation(status, ai_confidence)
 
     return UploadAnalysis(
         category=category,

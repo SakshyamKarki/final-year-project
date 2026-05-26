@@ -9,6 +9,11 @@ from uploads.services.pipeline import analyze_upload
 from uploads.services.errors import ApiError
 
 
+def _needs_moderation(status: str) -> bool:
+    """Both UNCERTAIN and AI_GEN require human review before appearing on feed."""
+    return status in ("UNCERTAIN", "AI_GEN")
+
+
 class UploadNewsView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -20,6 +25,12 @@ class UploadNewsView(APIView):
 
             analysis = analyze_upload(title=title, text=text, image_file=image)
 
+            mod_status = (
+                NewsUpload.ModerationStatus.QUEUED
+                if _needs_moderation(analysis.status)
+                else NewsUpload.ModerationStatus.NONE
+            )
+
             upload = NewsUpload.objects.create(
                 user=request.user,
                 title=title,
@@ -30,9 +41,8 @@ class UploadNewsView(APIView):
                 ai_confidence=analysis.ai_confidence,
                 trust_score=analysis.trust_score,
                 status=analysis.status,
-                # keep ai_result aligned with status for now (optional but consistent)
                 ai_result=analysis.status,
-                moderation_status="QUEUED" if analysis.status == "SUSPICIOUS" else "NONE",
+                moderation_status=mod_status,
                 explanation=analysis.explanation,
             )
 
@@ -51,7 +61,7 @@ class UserUploadsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        qs = NewsUpload.objects.filter(user=request.user)
+        qs = NewsUpload.objects.filter(user=request.user, is_deleted=False)
         return Response(
             NewsUploadListSerializer(qs, many=True, context={"request": request}).data
         )
@@ -63,7 +73,7 @@ class UploadDetailView(RetrieveAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        qs = NewsUpload.objects.all()
+        qs = NewsUpload.objects.filter(is_deleted=False)
         if user.is_staff or user.is_superuser:
             return qs
         return qs.filter(user=user)

@@ -6,7 +6,7 @@ ALLOWED_IMAGE_MIMES = {"image/png", "image/jpeg", "image/webp"}
 MAX_IMAGE_BYTES = 15 * 1024 * 1024
 
 TITLE_MIN = 5
-TITLE_MAX = 250  # match your model max_length=250
+TITLE_MAX = 250  
 TEXT_MIN = 20
 TEXT_MAX = 8000
 

@@ -25,7 +25,7 @@ def _device():
 def _resolve_models_dir() -> str:
     raw = config("ML_MODELS_DIR", default="ml_models")
 
-    # If user provides relative path like "ml_models", resolve relative to backend/ (BASE_DIR)
+    # relative path like "ml_models", resolve relative to backend/ (BASE_DIR)
     models_dir = raw
     if not os.path.isabs(models_dir):
         models_dir = str(settings.BASE_DIR / models_dir)
@@ -35,8 +35,7 @@ def _resolve_models_dir() -> str:
 def _load_model(model_path: str):
     """
     Loads a torch model checkpoint.
-    NOTE: This assumes you saved a full model via torch.save(model, path)
-    If you saved state_dict instead, you must rebuild the architecture and load_state_dict().
+    NOTE: saved a full model via torch.save(model, path)
     """
     model = torch.load(model_path, map_location=_device())
     model.eval()
@@ -63,7 +62,7 @@ def _get_model():
 def _preprocess_image(image_path: str):
     img = Image.open(image_path).convert("RGB")
 
-    # Common imagenet-style preprocessing; adjust to what you trained with if needed
+    # Common imagenet-style preprocessing;
     preprocess = transforms.Compose(
         [
             transforms.Resize((224, 224)),
@@ -99,7 +98,7 @@ def run_densenet121_inference(image_path: str) -> ImageInferenceResult:
 
         if logits.ndim == 2 and logits.shape[1] == 2:
             probs = torch.softmax(logits, dim=1)[0]
-            # assume index 1 = REAL, index 0 = FAKE (change if your training is opposite)
+            # assume index 1 = REAL, index 0 = FAKE 
             real_prob = float(probs[1].item())
         else:
             # assume sigmoid probability of REAL
